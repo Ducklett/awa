@@ -1,0 +1,12 @@
+{
+  "name": "awa",
+  "version": "1.0.0",
+  "description": "Learning webassembly by *\"reverse engineering\"* the bytecode format and writing my own assembler in javascript.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "unlicese"
+}

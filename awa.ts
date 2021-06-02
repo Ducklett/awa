@@ -1,39 +1,53 @@
-const flatten = xs => xs.reduce((acc, cur) => { acc.push(...cur); return acc }, [])
-const serializeBytes = xs => xs.map(v => v.toString(16)).join(' ')
-const deserializeBytes = str => str.split(' ').map(v => parseInt(v, 16))
-const nameBytes = name => name.split('').map((v) => v.charCodeAt(0))
-const renderBytecode = xs => [...xs].map(v => v.toString(16).toUpperCase().padStart(2, '0')).join(' ')
+const flatten = (xs: number[][]) => xs.reduce((acc, cur) => { acc.push(...cur); return acc }, [])
+const serializeBytes = (xs: number[]) => xs.map(v => v.toString(16)).join(' ')
+const deserializeBytes = (str: string) => str.split(' ').map(v => parseInt(v, 16))
+const nameBytes = (name: string) => name.split('').map((v) => v.charCodeAt(0))
+const renderBytecode = (xs: Uint8Array) => [...xs]
+    .map(v => v.toString(16).toUpperCase().padStart(2, '0'))
+    .join(' ')
 
 const paramIndex = new Array(255).fill(null).map((_, i) => i)
 
+type AwaFunc = { id: number, sigId: number, name?: string, opcodes: number[][] }
+type AwaModule = { funcs: AwaFunc[], sigs: Map<string, number>, funcCount: number, sigCount: number }
+
 const awa = {
     create() {
-        return { funcs: new Map(), funcCount: 0 }
+        return { funcs: [], sigs: new Map(), funcCount: 0, sigCount: 0 }
     },
-    funcId(module) { return module.funcCount++ },
-    func(module, { name = null, params = [], result = [], opcodes = [], id = -1 }) {
+
+    funcId(module: AwaModule) { return module.funcCount++ },
+
+    func(module: AwaModule, { name = null, params = [], result = [], opcodes = [], id = -1 }) {
 
         const sigByte = 0x60
         const signature = serializeBytes([sigByte, params.length, ...params, result.length, ...result])
         const funcs = module.funcs
-        if (id == -1) id = awa.funcId(module)
+        const sigs = module.sigs
 
-        if (!funcs.has(signature)) {
-            funcs.set(signature, [])
+        if (!sigs.has(signature)) {
+            sigs.set(signature, module.sigCount++)
         }
 
-        funcs.get(signature).push({ id, name, opcodes })
+        const sigId = sigs.get(signature)
+
+        if (id == -1) {
+            id = awa.funcId(module)
+        }
+
+        funcs[id] = { id, sigId, name, opcodes }
 
         return id
     },
-    compile({ funcs }) {
+
+    compile({ funcs, sigs }: AwaModule) {
         const magic = [0x00, 0x61, 0x73, 0x6D] // .asm
-        const module = [0x01, 0x00, 0x00, 0x00]
+        const version = [0x01, 0x00, 0x00, 0x00]
 
         const funcByte = 0x01
-        let headerCount = 0
+        let headerCount = sigs.size
         let headers = []
-        let funcCount = 0
+        let funcCount = funcs.length
         let headerIndices = []
         const exportSig = 0x07
         let exports = []
@@ -41,26 +55,24 @@ const awa = {
         const bodyTerm = 0x0B
         let bodies = []
 
-        for (let [sig, fns] of funcs) {
-            const headerIndex = headerCount
+        for (let [sig, _] of sigs) {
+            // const headerIndex = headerCount
             const signature = deserializeBytes(sig)
             headers.push(signature)
-            console.log(fns)
-            for (let fn of fns) {
-                headerIndices.push(headerIndex)
-                if (fn.name) {
-                    const bytes = nameBytes(fn.name)
-                    exports.push([bytes.length, ...bytes, 0x00, fn.id])
-                }
+        }
 
-                {
-                    const bytes = flatten(fn.opcodes)
-                    const bodyLen = bytes.length + 2
-                    bodies.push([bodyLen, 0x00, ...bytes, bodyTerm])
-                }
+        for (let fn of funcs) {
+            headerIndices.push(fn.sigId)
+            if (fn.name) {
+                const bytes = nameBytes(fn.name)
+                exports.push([bytes.length, ...bytes, 0x00, fn.id])
             }
-            headerCount++
-            funcCount += fns.length
+
+            {
+                const bytes = flatten(fn.opcodes)
+                const bodyLen = bytes.length + 2
+                bodies.push([bodyLen, 0x00, ...bytes, bodyTerm])
+            }
         }
 
         const flatHeaders = flatten(headers)
@@ -81,7 +93,7 @@ const awa = {
             bodySig, bodiesLen, bodiesCount, ...flatBodies
         ]
 
-        const bytecode = [...magic, ...module, ...funcCode]
+        const bytecode = [...magic, ...version, ...funcCode]
         return new Uint8Array(bytecode)
     },
 
@@ -92,17 +104,29 @@ const awa = {
         i32: 0x7F,
     },
 
+    call(id: number) { return [0x10, id] },
+
     local: {
-        get(n) { return [0x20, n] }
+        get(n: number) { return [0x20, n] }
     },
+
     i32: {
-        const(n) { return [0x41, n] },
+        const(n: number) { return [0x41, n] },
+        eqz() { return [0x45] },
         eq() { return [0x46] },
         ne() { return [0x47] },
+        lt_s() { return [0x48] },
+        lt_u() { return [0x49] },
+        gt_s() { return [0x4A] },
+        gt_u() { return [0x4B] },
         le_s() { return [0x4C] },
         le_u() { return [0x4D] },
         ge_s() { return [0x4E] },
         ge_u() { return [0x4F] },
+
+        clz() { return [0x67] },
+        ctz() { return [0x68] },
+        popcnt() { return [0x69] },
         add() { return [0x6A] },
         sub() { return [0x6B] },
         mul() { return [0x6C] },
@@ -111,11 +135,13 @@ const awa = {
         rem_s() { return [0x6F] },
         rem_u() { return [0x70] },
         and() { return [0x71] },
-        and() { return [0x72] },
+        or() { return [0x72] },
         xor() { return [0x73] },
         shl() { return [0x74] },
         shr_s() { return [0x75] },
         shr_u() { return [0x76] },
+        rotl() { return [0x77] },
+        rotr() { return [0x78] },
     },
 };
 
@@ -125,18 +151,20 @@ const awa = {
     const module = awa.create()
 
     const [a, b] = paramIndex
+    const add = awa.funcId(module)
+
     awa.func(module, {
-        name: 'wadd',
+        name: 'foo',
         params: [awa.type.i32, awa.type.i32],
         result: [awa.type.i32],
-        opcodes: [awa.local.get(a), awa.local.get(b), awa.i32.add()]
+        opcodes: [awa.local.get(a), awa.local.get(b), awa.call(add), awa.i32.const(2), awa.i32.add()]
     })
 
     awa.func(module, {
-        name: 'wsub',
+        id: add,
         params: [awa.type.i32, awa.type.i32],
         result: [awa.type.i32],
-        opcodes: [awa.local.get(a), awa.local.get(b), awa.i32.sub()]
+        opcodes: [awa.local.get(a), awa.local.get(b), awa.i32.add()]
     })
 
     const bytecode = awa.compile(module)
@@ -146,7 +174,6 @@ const awa = {
 
     const wasm = await WebAssembly.instantiate(bytecode)
     console.log(wasm)
-    console.log(wasm.instance.exports.wadd(10, 20))
-    console.log(wasm.instance.exports.wsub(10, 20))
+    console.log((wasm.instance.exports as any).foo(34, 35))
     // console.log(wasm.instance.exports.wsub(0, 0))
 })()

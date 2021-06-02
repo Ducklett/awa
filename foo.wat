@@ -1,13 +1,15 @@
 (module
-    ;; (func $add (param $a i32) (param $b i32) (result i32)
-    ;;     local.get $a
-    ;;     local.get $b
-    ;;     i32.add
-    ;; )
+    (func $add (param $a i32) (param $b i32) (result i32)
+        local.get $a
+        local.get $b
+        i32.add
+    )
 
-    (func $foo (export "wadd") (param i32 i32) (result i32) 
+    (func $foo (export "foo") (param i32 i32) (result i32) 
         local.get 0
         local.get 1
+        call $add
+        i32.const 2
         i32.add
     )
 
