@@ -25,20 +25,6 @@ const awa = {
         funcs.get(signature).push({ id, name, opcodes })
 
         return id
-
-        // const head = [0x01, 0x05, 0x01, 0x60, 0x00, 0x01, 0x7F, 0x03, 0x02, 0x01, 0x00]
-        // let exportSig = []
-        // if (name) {
-        //     const nameBytes = name.split('').map((v) => v.charCodeAt(0))
-        //     const nameLen = name.length
-        //     const bytesTillBody = 2 + nameLen + 2
-        //     exportSig = [0x07, bytesTillBody, 0x01, nameLen, ...nameBytes, 0x00, 0x00]
-        // }
-        // const opcodeBytes = flatten(opcodes)
-        // const len1 = opcodeBytes.length + 4
-        // const len2 = opcodeBytes.length + 2
-        // const body = [0x0A, len1, 0x01, len2, 0x00, ...opcodeBytes, 0x0B]
-        // module.push(...head, ...exportSig, ...body)
     },
     compile({ funcs }) {
         const magic = [0x00, 0x61, 0x73, 0x6D] // .asm
@@ -106,6 +92,9 @@ const awa = {
         i32: 0x7F,
     },
 
+    local: {
+        get(n) { return [0x20, n] }
+    },
     i32: {
         const(n) { return [0x41, n] },
         eq() { return [0x46] },
@@ -134,18 +123,20 @@ const awa = {
     // --- creating wasm module ---
 
     const module = awa.create()
+
+    const [a, b] = paramIndex
     awa.func(module, {
         name: 'wadd',
         params: [awa.type.i32, awa.type.i32],
         result: [awa.type.i32],
-        opcodes: [awa.i32.const(2)]
+        opcodes: [awa.local.get(a), awa.local.get(b), awa.i32.add()]
     })
 
     awa.func(module, {
         name: 'wsub',
         params: [awa.type.i32, awa.type.i32],
         result: [awa.type.i32],
-        opcodes: [awa.i32.const(4)]
+        opcodes: [awa.local.get(a), awa.local.get(b), awa.i32.sub()]
     })
 
     const bytecode = awa.compile(module)
@@ -155,6 +146,7 @@ const awa = {
 
     const wasm = await WebAssembly.instantiate(bytecode)
     console.log(wasm)
-    console.log(wasm.instance.exports.wadd(0, 0))
-    console.log(wasm.instance.exports.wsub(0, 0))
+    console.log(wasm.instance.exports.wadd(10, 20))
+    console.log(wasm.instance.exports.wsub(10, 20))
+    // console.log(wasm.instance.exports.wsub(0, 0))
 })()
