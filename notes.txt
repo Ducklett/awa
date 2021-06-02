@@ -1,0 +1,99 @@
+start with [00 61 73 6D] (asm magic)
+then [01 00 00 00] (module id??)
+
+         function that returns (2:i32)
+         function that returns (4:i32)
+         function that returns pushes 2, 4, then adds
+exported function that returns (2:i32) (called foo)
+01 05 01 60 00 01 7F 03 02 01 00                               0A 06 01 04 00 41 02 0B
+01 05 01 60 00 01 7F 03 02 01 00                               0A 06 01 04 00 41 04 0B
+01 05 01 60 00 01 7F 03 02 01 00                               0A 09 01 07 00 41 02 41 04 6A 0B
+01 05 01 60 00 01 7F 03 02 01 00 07 07 01 03 66 6F 6F    00 00 0A 06 01 04 00 41 02 0B
+                                             f  o  o
+01 05 01 60 00 01 7F 03 02 01 00 07 08 01 04 71 75 75 78 00 00 0A 06 01 04 00 41 02 0B
+                                             q   u  u x
+function terminates with 0B
+function that returns i32 starts with:
+   [ 01 05 01 60 00 01 7F 03 02 01 00 ]
+the body starts at [0A]
+the function export comes after he signature
+it is then followed by the number of bytes in the function body, including the terminator
+
+Function export looks like this:
+start with [ 07 A 01 ]
+  where A is the number of bytes until the body start
+followed by length of name [03]
+then the name [ 66 6F 6F ] (foo)
+then [ 00 00 ]
+
+# opcodes:
+i32.const	41 xx
+i32.add		6A
+
+# types:
+f64   7C
+f32   7D
+i64   7E
+i32   7F
+
+params and return test
+no arg,no param		01 04 01 60 00    00       03 02 01 00 07 08 01 04 71 75 75 78 00 00   0A 04 01 02 00             0B
+no arg,1 param		01 05 01 60 00    01 7F    03 02 01 00 07 08 01 04 71 75 75 78 00 00   0A 06 01 04 00 41 02       0B
+1 arg,1 param		01 06 01 60 01 7F 01 7F    03 02 01 00 07 08 01 04 71 75 75 78 00 00   0A 06 01 04 00 41 02       0B
+1 arg,2 param		01 07 01 60 01 7F 02 7F 7F 03 02 01 00 07 08 01 04 71 75 75 78 00 00   0A 08 01 06 00 41 02 41 05 0B
+									   q  u  u  x
+multiple function test
+01 05 01 60 00 01 7F 03 02 01 00       07 08 01 04 71 75 75 78 00 00                                           0A 06 01 04 00 41 02 0B
+                                                   q  u  u  x
+
+01 05 01 60 00 01 7F 03 03 02 00 00    07 0F 02 04 71 75 75 78 00 00 04 71 75 75 79 00 01                      0A 0B 02 04 00 41 02 0B 04 00 41 04 0B
+                                                   q  u  u  x           q  u  u  y
+01 05 01 60 00 01 7F 03 04 03 00 00 00 07 16 03 04 71 75 75 78 00 00 04 71 75 75 79 00 01 04 71 75 75 7A 00 02 0A 10 03 04 00 41 02 0B 04 00 41 04 0B 04 00 41 06 0B
+                                                   q  u  u  x           q  u  u  y           q  u  u  z
+
+functions format:
+[ 01 ]
+[ $B ] (bytes to end of header ([03]))
+[ $H ] (header count)
+[ $headers ]
+  header format:
+  [ 60 ]
+  [ $P ] (param count)
+  [ $paramTypes]
+  [ $R ] (return count)
+  [ $returntypes ]
+[ 03 ]
+[ $G ] (function count+1)
+[ $F ] (function count)
+N * [ $I ] (N = function count, I=index of the header?)
+if (export) {
+[ 07 ]
+[ $N ] (bytes till end of exports)
+[ $F ] (exports count)
+[ $names ]
+  name format:
+  [ 04 ] (length of name)
+  [ $namebytes ]
+  [ 00 ]
+  [ $I ] (function id)
+}
+
+
+[ 0A ]
+[ 06 ] (bodies bytes count)
+[ 03 ] (function count)
+[ $bodies ]
+  body format:
+      [ 04 ] (body bytes count)
+      [ 00 ]
+      [ $opcodes ]
+      [ 0B ]
+    
+functions with different signatures test:
+01 09 02 60 00 01 7F 60 00 01 7E 03 03 02 00 01     07 0F 02 04 71 75 75 78 00 00 04 71 75 75 79 00 01     0A 0B 02 04 00 41 02 0B 04 00 42 04 0B
+                                                                q  u  u  x           q  u  u  z
+
+
+
+00 61 73 6D 01 00 00 00 01 07 01 60 02 7F 7F 01 7F 03 03 02 00 00 07 0F 02 04 77 61 64 64 00 00 04 77 73 75 62 00 01 0A 0C 02 00 00 41 02 0B 00 00 41 04 0B
+00 61 73 6D 01 00 00 00 01 07 01 60 02 7F 7F 01 7F 03 03 02 00 00 07 0F 02 04 77 61 64 64 00 00 04 77 73 75 62 00 01 0A 0B 02 04 00 41 02 0B 04 00 41 04 0B
