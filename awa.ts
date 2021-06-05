@@ -1,3 +1,7 @@
+type AwaOpcode = number[]
+type AwaFunc = { id: number, sigId: number, name?: string, opcodes: AwaOpcode[] }
+type AwaModule = { funcs: AwaFunc[], sigs: Map<string, number>, funcCount: number, sigCount: number }
+
 const flatten = (xs: number[][]) => xs.reduce((acc, cur) => { acc.push(...cur); return acc }, [])
 const serializeBytes = (xs: number[]) => xs.map(v => v.toString(16)).join(' ')
 const deserializeBytes = (str: string) => str.split(' ').map(v => parseInt(v, 16))
@@ -6,10 +10,11 @@ export const renderBytecode = (xs: Uint8Array) => [...xs]
     .map(v => v.toString(16).toUpperCase().padStart(2, '0'))
     .join(' ')
 
-export const paramIndex = new Array(255).fill(null).map((_, i) => i)
+/** (+,10,20) => 10 20 push  */
+export const sexpr = (f: AwaOpcode, ...xs: AwaOpcode[]): number[] => [...flatten(xs), ...f]
+export const namedParams = (obj) => Object.values(obj)
 
-type AwaFunc = { id: number, sigId: number, name?: string, opcodes: number[][] }
-type AwaModule = { funcs: AwaFunc[], sigs: Map<string, number>, funcCount: number, sigCount: number }
+export const paramIndex = new Array(255).fill(null).map((_, i) => i)
 
 const awa = {
     create() {
@@ -102,6 +107,17 @@ const awa = {
         f32: 0x7D,
         i64: 0x7E,
         i32: 0x7F,
+    },
+
+    if(type: number, condition: AwaOpcode[], then: AwaOpcode[], els: AwaOpcode[]) {
+        return [
+            ...flatten(condition),
+            ...awa.opcodes.if(type),
+            ...flatten(then),
+            ...awa.opcodes.else(),
+            ...flatten(els),
+            ...awa.opcodes.end(),
+        ]
     },
 
     opcodes: {
