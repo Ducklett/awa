@@ -92,3 +92,41 @@ if (export) {
 functions with different signatures test:
 01 09 02 60 00 01 7F 60 00 01 7E 03 03 02 00 01     07 0F 02 04 71 75 75 78 00 00 04 71 75 75 79 00 01     0A 0B 02 04 00 41 02 0B 04 00 42 04 0B
                                                                 q  u  u  x           q  u  u  z
+
+// https://webassembly.github.io/spec/core/appendix/index-instructions.html
+// opcode scraper
+// still a bit broken but works okay-ish
+table = document.querySelector('table')
+rows = [...table.querySelectorAll('tr')]
+.filter((v,i)=>i>0)
+.map(v=>{
+  const process = td => td?.innerText?.split('\n')[0].trim()
+  const [instr,op] = v.querySelectorAll('td')
+  return [instr, op].map(process)
+})
+.filter(([instr,op])=>instr != '(reserved)')
+.map(([instr,op]) => {
+  let [path,arg] = instr.split(/\s+/)
+  arg = arg||''
+  let [namespace,name] = path.split(".")
+  if (!name) [name,namespace] = [namespace,name]
+  return {namespace, name,arg, op}
+})
+.reduce((acc,cur,i)=>{
+  let str = `${cur.name}(${cur.arg}) { return [${cur.op},${cur.arg}]}`
+
+    cur.namespace = cur.namespace||'top'
+  if (cur.namespace && !acc[cur.namespace]) {
+    acc[cur.namespace] = []
+  }
+  
+  acc[cur.namespace].push(str)
+  return acc
+},{})
+res = `{
+  ${rows['top'].join(',\n')}
+  ${Object.keys(rows).filter(v=>v!='top').map(k=>`${k}: {
+    ${rows[k].join(',\n')}
+  }`).join(',\n')}
+}`
+console.log(res)
