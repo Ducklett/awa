@@ -118,7 +118,7 @@ const awa = {
             importDefs.push([...flatten(pathBytes), 0x00, im.sigId])
         }
 
-        if (memory) {
+        if (memory && memory.name) {
             const bytes = nameBytes(memory.name as string)
             exports.push([bytes.length, ...bytes, 0x02, 0x00])
         }
@@ -173,9 +173,6 @@ const awa = {
         const importCode = importCount == 0 ? [] : [importSig, importLen, importCount, ...flatImports]
 
         const memoryCode = !memory ? [] : [0x05, 0x04, 0x01, 0x01, memory.pages, memory.maxPages];
-
-        console.log('mem')
-        console.log(memoryCode)
 
         const funcCode = [
             0x03, funcCount + 1, funcCount, ...headerIndices,
