@@ -1,7 +1,10 @@
 type AwaOpcode = number[]
 type AwaFunc = { id: number, sigId: number, name?: string, locals: number[], opcodes: AwaOpcode[] }
 type AwaImport = { id: number, sigId: number, path: string[] }
+type AwaMemory = { name?: String, pages: number, maxPages: number }
+
 type AwaModule = {
+    memory?: AwaMemory,
     // array of all the functions defined in the module
     funcs: AwaFunc[],
     // array of all the imports defined in the module
@@ -39,6 +42,12 @@ const awa = {
     },
 
     funcId(module: AwaModule) { return module.funcCount++ },
+
+    memory(module: AwaModule, mem: AwaMemory) {
+        console.assert(module.memory == null, "Should only set memory once")
+
+        module.memory = mem
+    },
 
     signature(module: AwaModule, params: number[], result: number[]) {
         const sigByte = 0x60
@@ -80,7 +89,7 @@ const awa = {
         return id
     },
 
-    compile({ funcs, imports, lut, sigs }: AwaModule) {
+    compile({ funcs, imports, lut, sigs, memory }: AwaModule) {
         const magic = [0x00, 0x61, 0x73, 0x6D] // .asm
         const version = [0x01, 0x00, 0x00, 0x00]
 
@@ -107,6 +116,11 @@ const awa = {
             const pathBytes = im.path.map(segment => [segment.length, ...nameBytes(segment)])
             console.log(pathBytes)
             importDefs.push([...flatten(pathBytes), 0x00, im.sigId])
+        }
+
+        if (memory) {
+            const bytes = nameBytes(memory.name as string)
+            exports.push([bytes.length, ...bytes, 0x02, 0x00])
         }
 
         for (let fn of funcs) {
@@ -158,8 +172,14 @@ const awa = {
         const headerCode = headerCount == 0 ? [] : [funcByte, headerLen, headerCount, ...flatHeaders]
         const importCode = importCount == 0 ? [] : [importSig, importLen, importCount, ...flatImports]
 
+        const memoryCode = !memory ? [] : [0x05, 0x04, 0x01, 0x01, memory.pages, memory.maxPages];
+
+        console.log('mem')
+        console.log(memoryCode)
+
         const funcCode = [
             0x03, funcCount + 1, funcCount, ...headerIndices,
+            ...memoryCode,
             exportSig, exportLen, exportsCount, ...flatExports,
             bodySig, bodiesLen, bodiesCount, ...flatBodies
         ]
@@ -232,12 +252,13 @@ const awa = {
             fill(x) { return [0xFC, 0x11, x] }
         },
         i32: {
-            load(memarg) { return [0x28, memarg] },
+
+            load() { return [0x28, 0x02, 0x00] }, // TODO: test if this is actually correct
             load8_s(memarg) { return [0x2C, memarg] },
             load8_u(memarg) { return [0x2D, memarg] },
             load16_s(memarg) { return [0x2E, memarg] },
             load16_u(memarg) { return [0x2F, memarg] },
-            store(memarg) { return [0x36, memarg] },
+            store() { return [0x36, 0x02, 0x00] }, // TODO: test if this is actually correct
             store8(memarg) { return [0x3A, memarg] },
             store16(memarg) { return [0x3B, memarg] },
             const(i32) { return [0x41, i32] },

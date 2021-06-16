@@ -22,3 +22,4 @@ All the learning material I can find on webassembly is either incredibly high le
 - [Github - WABT: The WebAssembly Binary Toolkit](https://github.com/WebAssembly/wabt)
 - [Github - WebAssembly Semantics](https://github.com/WebAssembly/design/blob/main/Semantics.md)
 - [WebAssembly Specification - Binary Format](https://webassembly.github.io/spec/core/binary/index.html)
+- [Surma - Raw WebAssembly](https://surma.dev/things/raw-wasm/)

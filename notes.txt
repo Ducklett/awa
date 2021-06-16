@@ -51,6 +51,28 @@ multiple function test
 01 05 01 60 00 01 7F 03 04 03 00 00 00 07 16 03 04 71 75 75 78 00 00 04 71 75 75 79 00 01 04 71 75 75 7A 00 02 0A 10 03 04 00 41 02 0B 04 00 41 04 0B 04 00 41 06 0B
                                                    q  u  u  x           q  u  u  y           q  u  u  z
 
+memory:
+01 04 01 60 00 00                            03 02 01 00                   07 07 01                   03 66 6F 6F 00 00 0A 04 01 02 00 0B
+01 04 01 60 00 00                            03 02 01 00 05 04 01 01 01 08 07 07 01                   03 66 6F 6F 00 00 0A 04 01 02 00 0B
+01 04 01 60 00 00                            03 02 01 00 05 04 01 01 02 08 07 07 01                   03 66 6F 6F 00 00 0A 04 01 02 00 0B
+01 04 01 60 00 00                            03 02 01 00 05 04 01 01 01 08 07 0D 02 03 6D 65 6D 02 00 03 66 6F 6F 00 00 0A 04 01 02 00 0B
+                                                                                        m  e  m           f  o  o
+00 61 73 6D 01 00 00 00 01 05 01 60 00 01 7F 03 02 01 00 05 04 01 01 01 08 07 0D 02 03 6D 65 6D 02 00 03 66 6F 6F 00 00 0A 11 01 0F 00 41 00 41 C5 00 36 02 00 41 00 28 02 00 0B
+
+41 00 41 C5 00 36 02 00 41 00 28 02 00 0B
+41 00	       ; i32.const 0
+41 C5 00       ; i32.const 69 (leb128 pepega clap)
+36 02 00       ; i32.store 
+41 00	       ; i32.const 0
+28 02 00       ; i32.load
+
+0B
+
+41 01
+41 C5
+00 36 02 00
+0B
+
 functions format:
 [ 01 ]
 [ $B ] (bytes to end of header)
@@ -76,6 +98,14 @@ if (imports) {
 [ $G ] (function count+1)
 [ $F ] (function count)
 N * [ $I ] (N = function count, I=index of the header?)
+if (memory) {
+  [ 05 ]
+  [ 04 ]
+  [ 01 ]
+  [ 01 ]
+  [ $P ] (pagecount)
+  [ $Q ] (max page count)
+}
 if (name) {
 [ 07 ]
 [ $N ] (bytes till end of exports)
@@ -155,10 +185,13 @@ res = `{
 }`
 console.log(res)
 
-- local variables
 - memory
+- globals
 - tables
 - hello world
+  - utf-8 encode text; use textencoder and textdecoder to communicate with js
 - callback
 - loop
 - figure out how to do u8 and u16
+- leb128 integer encoding
+
