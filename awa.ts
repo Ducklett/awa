@@ -115,6 +115,7 @@ const awa = {
             }
 
             {
+                // converts array of local types [i32,i64,...] to binary format [segments, typecount, type, typecount, type,...]
                 function packLocals(locals: number[]) {
                     let types = [locals[0]]
                     let count = [0]
