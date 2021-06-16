@@ -20,6 +20,8 @@ const flatten = (xs: number[][]) => xs.reduce((acc, cur) => { acc.push(...cur); 
 const serializeBytes = (xs: number[]) => xs.map(v => v.toString(16)).join(' ')
 const deserializeBytes = (str: string) => str.split(' ').map(v => parseInt(v, 16))
 const nameBytes = (name: string) => name.split('').map((v) => v.charCodeAt(0))
+const zip = <T, U>(a: T[], b: U[]): [T, U][] => a.map((v, i) => [v, b[i]])
+
 export const renderBytecode = (xs: Uint8Array) => [...xs]
     .map(v => v.toString(16).toUpperCase().padStart(2, '0'))
     .join(' ')
@@ -129,7 +131,7 @@ const awa = {
                             count[i]++
                         }
                     }
-                    return [types.length, ...flatten(types.map((t, i) => [count[i], t]))]
+                    return [types.length, ...flatten(zip(count, types))]
                 }
                 const bytes = flatten(fn.opcodes)
                 const locals = fn.locals.length == 0 ? [0x00] : packLocals(fn.locals)
