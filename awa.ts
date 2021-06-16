@@ -1,6 +1,20 @@
 type AwaOpcode = number[]
 type AwaFunc = { id: number, sigId: number, name?: string, opcodes: AwaOpcode[] }
-type AwaModule = { funcs: AwaFunc[], sigs: Map<string, number>, funcCount: number, sigCount: number }
+type AwaImport = { id: number, sigId: number, path: string[] }
+type AwaModule = {
+    // array of all the functions defined in the module
+    funcs: AwaFunc[],
+    // array of all the imports defined in the module
+    imports: AwaImport[],
+    // lookup table of id => module entry
+    lut: (AwaFunc | AwaImport)[],
+    // call signatures
+    sigs: Map<string, number>,
+    // amount of functions+imports in the module 
+    funcCount: number,
+    // amount of call signatures in the module
+    sigCount: number,
+}
 
 const flatten = (xs: number[][]) => xs.reduce((acc, cur) => { acc.push(...cur); return acc }, [])
 const serializeBytes = (xs: number[]) => xs.map(v => v.toString(16)).join(' ')
@@ -12,40 +26,59 @@ export const renderBytecode = (xs: Uint8Array) => [...xs]
 
 /** (+,10,20) => 10 20 push  */
 export const sexpr = (f: AwaOpcode, ...xs: AwaOpcode[]): number[] => [...flatten(xs), ...f]
+/**allows naming of parameters for readablility sake, strips names and returns an array of the values  */
 export const namedParams = (obj) => Object.values(obj)
 
 export const paramIndex = new Array(255).fill(null).map((_, i) => i)
 
 const awa = {
     create() {
-        return { funcs: [], sigs: new Map(), funcCount: 0, sigCount: 0 }
+        return { funcs: [], imports: [], lut: [], sigs: new Map(), funcCount: 0, sigCount: 0 }
     },
 
     funcId(module: AwaModule) { return module.funcCount++ },
 
-    func(module: AwaModule, { name = null, params = [], result = [], opcodes = [], id = -1 }) {
-
+    signature(module: AwaModule, params: number[], result: number[]) {
         const sigByte = 0x60
         const signature = serializeBytes([sigByte, params.length, ...params, result.length, ...result])
-        const funcs = module.funcs
-        const sigs = module.sigs
 
-        if (!sigs.has(signature)) {
-            sigs.set(signature, module.sigCount++)
+        if (!module.sigs.has(signature)) {
+            module.sigs.set(signature, module.sigCount++)
         }
 
-        const sigId = sigs.get(signature)
+        return module.sigs.get(signature)
+    },
+
+    import(module: AwaModule, { path = [], params = [], result = [], id = -1 }) {
+        const sigId = awa.signature(module, params, result)
 
         if (id == -1) {
             id = awa.funcId(module)
         }
 
-        funcs[id] = { id, sigId, name, opcodes }
+        const mod = { id, sigId, path }
+        module.imports.push(mod)
+        module.lut[id] = mod
 
         return id
     },
 
-    compile({ funcs, sigs }: AwaModule) {
+    func(module: AwaModule, { name = null, params = [], result = [], opcodes = [], id = -1 }) {
+
+        const sigId = awa.signature(module, params, result)
+
+        if (id == -1) {
+            id = awa.funcId(module)
+        }
+
+        const fn = { id, sigId, name, opcodes }
+        module.funcs.push(fn)
+        module.lut[id] = fn
+
+        return id
+    },
+
+    compile({ funcs, imports, lut, sigs }: AwaModule) {
         const magic = [0x00, 0x61, 0x73, 0x6D] // .asm
         const version = [0x01, 0x00, 0x00, 0x00]
 
@@ -54,6 +87,8 @@ const awa = {
         let headers = []
         let funcCount = funcs.length
         let headerIndices = []
+        const importSig = 0x02
+        let importDefs: number[][] = []
         const exportSig = 0x07
         let exports = []
         const bodySig = 0x0A
@@ -64,6 +99,12 @@ const awa = {
             // const headerIndex = headerCount
             const signature = deserializeBytes(sig)
             headers.push(signature)
+        }
+
+        for (let im of imports) {
+            const pathBytes = im.path.map(segment => [segment.length, ...nameBytes(segment)])
+            console.log(pathBytes)
+            importDefs.push([...flatten(pathBytes), 0x00, im.sigId])
         }
 
         for (let fn of funcs) {
@@ -83,6 +124,10 @@ const awa = {
         const flatHeaders = flatten(headers)
         const headerLen = 1 + flatHeaders.length
 
+        const flatImports = flatten(importDefs)
+        const importLen = 1 + flatImports.length
+        const importCount = importDefs.length
+
         const flatExports = flatten(exports)
         const exportLen = 1 + flatExports.length
         const exportsCount = exports.length
@@ -91,33 +136,45 @@ const awa = {
         const bodiesLen = 1 + flatBodies.length
         const bodiesCount = bodies.length
 
+        const headerCode = headerCount == 0 ? [] : [funcByte, headerLen, headerCount, ...flatHeaders]
+        const importCode = importCount == 0 ? [] : [importSig, importLen, importCount, ...flatImports]
+
         const funcCode = [
-            funcByte, headerLen, headerCount, ...flatHeaders,
             0x03, funcCount + 1, funcCount, ...headerIndices,
             exportSig, exportLen, exportsCount, ...flatExports,
             bodySig, bodiesLen, bodiesCount, ...flatBodies
         ]
 
-        const bytecode = [...magic, ...version, ...funcCode]
+        const bytecode = [...magic, ...version, ...headerCode, ...importCode, ...funcCode]
         return new Uint8Array(bytecode)
     },
 
     type: {
+        empty: 0x40,
         f64: 0x7C,
         f32: 0x7D,
         i64: 0x7E,
         i32: 0x7F,
     },
 
-    if(type: number, condition: AwaOpcode[], then: AwaOpcode[], els: AwaOpcode[]) {
-        return [
-            ...flatten(condition),
-            ...awa.opcodes.if(type),
-            ...flatten(then),
-            ...awa.opcodes.else(),
-            ...flatten(els),
-            ...awa.opcodes.end(),
-        ]
+    if(type: number, condition: AwaOpcode[], then: AwaOpcode[], els: AwaOpcode[] = []) {
+        if (els.length) {
+            return [
+                ...flatten(condition),
+                ...awa.opcodes.if(type),
+                ...flatten(then),
+                ...awa.opcodes.else(),
+                ...flatten(els),
+                ...awa.opcodes.end(),
+            ]
+        } else {
+            return [
+                ...flatten(condition),
+                ...awa.opcodes.if(type),
+                ...flatten(then),
+                ...awa.opcodes.end(),
+            ]
+        }
     },
 
     opcodes: {

@@ -53,7 +53,7 @@ multiple function test
 
 functions format:
 [ 01 ]
-[ $B ] (bytes to end of header ([03]))
+[ $B ] (bytes to end of header)
 [ $H ] (header count)
 [ $headers ]
   header format:
@@ -62,11 +62,21 @@ functions format:
   [ $paramTypes]
   [ $R ] (return count)
   [ $returntypes ]
+if (imports) {
+  [ 02 ]
+  [ $B ] (bytes to end of imports)
+  [ $C ] (importcount)
+  for each segment: 
+    [ $S]; (segment length)
+    [ $segmentbytes ]
+  [ 00 ]
+  [ $i ] (header index)
+}
 [ 03 ]
 [ $G ] (function count+1)
 [ $F ] (function count)
 N * [ $I ] (N = function count, I=index of the header?)
-if (export) {
+if (name) {
 [ 07 ]
 [ $N ] (bytes till end of exports)
 [ $F ] (exports count)
@@ -88,7 +98,7 @@ if (export) {
       [ 00 ]
       [ $opcodes ]
       [ 0B ]
-    
+
 functions with different signatures test:
 01 09 02 60 00 01 7F 60 00 01 7E 03 03 02 00 01     07 0F 02 04 71 75 75 78 00 00 04 71 75 75 79 00 01     0A 0B 02 04 00 41 02 0B 04 00 42 04 0B
                                                                 q  u  u  x           q  u  u  z
@@ -130,3 +140,11 @@ res = `{
   }`).join(',\n')}
 }`
 console.log(res)
+
+
+- memory
+- tables
+- hello world
+- callback
+- loop
+- figure out how to do u8 and u16

@@ -8,17 +8,19 @@ const { local, call, i32 } = awa.opcodes;
 
     const module = awa.create()
 
+    const consoleLog = awa.import(module, { path: ['console', 'log'], params: [type.i32] })
+
     {
-        const [a, b] = paramIndex
+        const [a] = paramIndex
         awa.func(module, {
-            name: 'max',
-            params: N({ a: type.i32, b: type.i32 }),
-            result: [type.i32],
-            opcodes: [awa.if(type.i32,
-                [E(i32.gt_s(), local.get(a), local.get(b))],
-                [local.get(a)],
-                [local.get(b)],
-            )]
+            name: 'foo',
+            params: N({ a: type.i32 }),
+            opcodes: [
+                awa.if(type.empty,
+                    [E(i32.gt_s(), local.get(a), i32.const(10))],
+                    [E(opcodes.call(consoleLog), local.get(a))])
+
+            ]
         })
     }
 
@@ -27,8 +29,14 @@ const { local, call, i32 } = awa.opcodes;
 
     // // --- running wasm module ---
 
-    const wasm = await WebAssembly.instantiate(bytecode)
-    console.log(wasm)
-    console.log((wasm.instance.exports as any).max(30, 20))
-    // console.log(wasm.instance.exports.wsub(0, 0))
+    const wasm = await WebAssembly.instantiate(bytecode, { console: { log: console.log } } as any)
+    const m = wasm.instance.exports as any
+    m.foo(9)
+    m.foo(10)
+    m.foo(11)
+    m.foo(12)
+
+    // const wasm = await WebAssembly.instantiateStreaming(fetch('./foo.wasm'), { console: { log: console.log } } as any)
+    // console.log(wasm);
+    // (wasm.instance.exports as any).lognum(11)
 })()
