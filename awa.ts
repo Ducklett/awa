@@ -1,5 +1,5 @@
 type AwaOpcode = number[]
-type AwaFunc = { id: number, sigId: number, name?: string, opcodes: AwaOpcode[] }
+type AwaFunc = { id: number, sigId: number, name?: string, locals: number[], opcodes: AwaOpcode[] }
 type AwaImport = { id: number, sigId: number, path: string[] }
 type AwaModule = {
     // array of all the functions defined in the module
@@ -63,7 +63,7 @@ const awa = {
         return id
     },
 
-    func(module: AwaModule, { name = null, params = [], result = [], opcodes = [], id = -1 }) {
+    func(module: AwaModule, { name = null, params = [], result = [], locals = [], opcodes = [], id = -1 }) {
 
         const sigId = awa.signature(module, params, result)
 
@@ -71,7 +71,7 @@ const awa = {
             id = awa.funcId(module)
         }
 
-        const fn = { id, sigId, name, opcodes }
+        const fn = { id, sigId, name, locals, opcodes }
         module.funcs.push(fn)
         module.lut[id] = fn
 
@@ -115,9 +115,25 @@ const awa = {
             }
 
             {
+                function packLocals(locals: number[]) {
+                    let types = [locals[0]]
+                    let count = [0]
+                    let i = 0
+                    for (let local of locals) {
+                        if (types[i] != local) {
+                            types.push(local)
+                            count.push(1)
+                            i++
+                        } else {
+                            count[i]++
+                        }
+                    }
+                    return [types.length, ...flatten(types.map((t, i) => [count[i], t]))]
+                }
                 const bytes = flatten(fn.opcodes)
-                const bodyLen = bytes.length + 2
-                bodies.push([bodyLen, 0x00, ...bytes, bodyTerm])
+                const locals = fn.locals.length == 0 ? [0x00] : packLocals(fn.locals)
+                const bodyLen = locals.length + bytes.length + 1
+                bodies.push([bodyLen, ...locals, ...bytes, bodyTerm])
             }
         }
 

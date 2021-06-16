@@ -103,6 +103,20 @@ functions with different signatures test:
 01 09 02 60 00 01 7F 60 00 01 7E 03 03 02 00 01     07 0F 02 04 71 75 75 78 00 00 04 71 75 75 79 00 01     0A 0B 02 04 00 41 02 0B 04 00 42 04 0B
                                                                 q  u  u  x           q  u  u  z
 
+locals test:
+they continue where the params index left off
+
+0A 0C 01
+0A
+01	; local segments
+each segment:
+  01	; locals of type
+  7F	; type i32
+41 04	; i32.const 4
+21 01	; local.set 1
+20 01	; local.get 1
+0B
+
 // https://webassembly.github.io/spec/core/appendix/index-instructions.html
 // opcode scraper
 // still a bit broken but works okay-ish
@@ -141,7 +155,7 @@ res = `{
 }`
 console.log(res)
 
-
+- local variables
 - memory
 - tables
 - hello world

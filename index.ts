@@ -15,6 +15,7 @@ const { local, call, i32 } = awa.opcodes;
         awa.func(module, {
             name: 'foo',
             params: N({ a: type.i32 }),
+            locals: [type.i32, type.i64, type.i32],
             opcodes: [
                 awa.if(type.empty,
                     [E(i32.gt_s(), local.get(a), i32.const(10))],
