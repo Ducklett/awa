@@ -1,8 +1,10 @@
 # Awa
 
-Learning webassembly by *"reverse engineering"* the bytecode format and writing my own assembler in javascript.
+Learning webassembly by _"reverse engineering"_ the bytecode format and writing my own assembler in javascript.
 
-# Method
+For a continuation of this project see [Walc](https://github.com/ducklett/walc).
+
+## Method
 
 I generate `.wasm` modules from `.wat` files and find out which bytes do what by making incremental changes.
 
@@ -12,11 +14,11 @@ After getting a basic understanding of the binary format through this process I 
 
 See `notes.txt`.
 
-# Why
+## Why
 
 All the learning material I can find on webassembly is either incredibly high level or incredibly dry. Learning this way is a lot more fun :)
 
-# Resources
+## Resources
 
 - [MDN - Understanding WebAssembly text format](https://developer.mozilla.org/en-US/docs/WebAssembly/Understanding_the_text_format)
 - [Github - WABT: The WebAssembly Binary Toolkit](https://github.com/WebAssembly/wabt)
